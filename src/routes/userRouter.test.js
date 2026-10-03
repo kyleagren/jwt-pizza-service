@@ -56,6 +56,15 @@ test('a user cannot update another user', async () => {
   expect(userRes.status).toBe(403);
 });
 
+test('delete user route returns its current response', async () => {
+  const userRes = await request(app)
+    .delete('/api/user/' + testUser.id)
+    .set('Authorization', `Bearer ${testUserAuthToken}`);
+
+  expect(userRes.status).toBe(200);
+  expect(userRes.body).toEqual({ message: 'not implemented' });
+});
+
 test('list users requires authentication', async () => {
   const usersRes = await request(app)
     .get('/api/user')
