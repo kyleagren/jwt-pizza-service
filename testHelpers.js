@@ -2,7 +2,7 @@ function randomName() {
   return Math.random().toString(36).substring(2, 12);
 }
 
-const { Role, DB } = require('../database/database.js');
+const { Role, DB } = require('./src/database/database.js');
 
 async function createAdminUser() {
   let user = { password: 'toomanysecrets', roles: [{ role: Role.Admin }] };
