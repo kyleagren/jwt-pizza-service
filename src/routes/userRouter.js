@@ -37,7 +37,7 @@ userRouter.docs = [
   },
   {
     method: 'GET',
-    path: '/api/user?page=1&limit=10&name=*',
+    path: '/api/user?page=0&limit=10&name=*',
     requiresAuth: true,
     description: 'Gets a list of users',
     example: `curl -X GET localhost:3000/api/user -H 'Authorization: Bearer tttttt'`,
@@ -95,7 +95,7 @@ userRouter.get(
   '/',
   authRouter.authenticateToken,
   asyncHandler(async (req, res) => {
-    const [users, more] = await DB.getUsers();
+    const [users, more] = await DB.getUsers(req.query.page, req.query.limit);
     res.json({ users, more });
   }),
 );
