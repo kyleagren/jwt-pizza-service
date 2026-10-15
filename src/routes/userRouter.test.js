@@ -80,4 +80,80 @@ test('list users', async () => {
     .get('/api/user')
     .set('Authorization', 'Bearer ' + userToken);
   expect(listUsersRes.status).toBe(200);
+  expect(Array.isArray(listUsersRes.body.users)).toBe(true);
+  expect(listUsersRes.body.users.length).toBeGreaterThan(0);
+  expect(typeof listUsersRes.body.more).toBe('boolean');
+
+  for (const listedUser of listUsersRes.body.users) {
+    expect(listedUser).toHaveProperty('id');
+    expect(listedUser).toHaveProperty('name');
+    expect(listedUser).toHaveProperty('email');
+    expect(Array.isArray(listedUser.roles)).toBe(true);
+    expect(listedUser).not.toHaveProperty('password');
+  }
+});
+
+test('list users paginates', async () => {
+  for (let i = 0; i < 3; i++) {
+    await registerUser(request(app));
+  }
+
+  const firstPageRes = await request(app)
+    .get('/api/user?page=0&limit=2')
+    .set('Authorization', `Bearer ${testUserAuthToken}`);
+
+  expect(firstPageRes.status).toBe(200);
+  expect(firstPageRes.body.users.length).toBe(2);
+  expect(firstPageRes.body.more).toBe(true);
+
+  const secondPageRes = await request(app)
+    .get('/api/user?page=1&limit=2')
+    .set('Authorization', `Bearer ${testUserAuthToken}`);
+
+  expect(secondPageRes.status).toBe(200);
+  expect(secondPageRes.body.users.length).toBeGreaterThan(0);
+
+  const firstPageIds = firstPageRes.body.users.map((u) => u.id);
+  for (const listedUser of secondPageRes.body.users) {
+    expect(firstPageIds).not.toContain(listedUser.id);
+  }
+});
+
+test('list users filters by name', async () => {
+  const name = randomName();
+  const registerRes = await request(app)
+    .post('/api/auth')
+    .send({ name, email: name + '@test.com', password: 'a' });
+  const filteredUser = registerRes.body.user;
+
+  const listUsersRes = await request(app)
+    .get('/api/user?name=' + name)
+    .set('Authorization', `Bearer ${testUserAuthToken}`);
+
+  expect(listUsersRes.status).toBe(200);
+  expect(listUsersRes.body.users.length).toBe(1);
+  expect(listUsersRes.body.users[0]).toMatchObject({
+    id: filteredUser.id,
+    name: filteredUser.name,
+    email: filteredUser.email,
+    roles: [{ role: 'diner' }],
+  });
+  expect(listUsersRes.body.more).toBe(false);
+});
+
+test('list users name filter supports wildcards', async () => {
+  const prefix = randomName();
+  const names = [prefix + 'a', prefix + 'b'];
+  for (const name of names) {
+    await request(app)
+      .post('/api/auth')
+      .send({ name, email: name + '@test.com', password: 'a' });
+  }
+
+  const listUsersRes = await request(app)
+    .get('/api/user?name=' + prefix + '*')
+    .set('Authorization', `Bearer ${testUserAuthToken}`);
+
+  expect(listUsersRes.status).toBe(200);
+  expect(listUsersRes.body.users.map((u) => u.name).sort()).toEqual(names);
 });
