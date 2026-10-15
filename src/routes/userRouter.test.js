@@ -8,6 +8,7 @@ const {
 
 let testUser;
 let testUserAuthToken;
+let adminAuthToken;
 
 async function createAdminToken() {
   const admin = await createAdminUser();
@@ -30,6 +31,7 @@ beforeAll(async () => {
 
   testUser = registerRes.body.user;
   testUserAuthToken = registerRes.body.token;
+  adminAuthToken = await createAdminToken();
 });
 
 test('get the authenticated user', async () => {
@@ -78,18 +80,18 @@ test('delete user requires authentication', async () => {
   expect(deleteRes.status).toBe(401);
 });
 
-test('a user can delete themselves', async () => {
+test('a user cannot delete themselves', async () => {
   const [user, userToken] = await registerUser(request(app));
 
   const deleteRes = await request(app)
     .delete('/api/user/' + user.id)
     .set('Authorization', `Bearer ${userToken}`);
-  expect(deleteRes.status).toBe(200);
+  expect(deleteRes.status).toBe(403);
 
   const loginRes = await request(app)
     .put('/api/auth')
     .send({ email: user.email, password: user.password });
-  expect(loginRes.status).toBe(404);
+  expect(loginRes.status).toBe(200);
 });
 
 test('a user cannot delete another user', async () => {
@@ -126,11 +128,18 @@ test('list users unauthorized', async () => {
   expect(listUsersRes.status).toBe(401);
 });
 
-test('list users', async () => {
-  const [user, userToken] = await registerUser(request(app));
+test('list users requires admin', async () => {
+  const [, userToken] = await registerUser(request(app));
   const listUsersRes = await request(app)
     .get('/api/user')
     .set('Authorization', 'Bearer ' + userToken);
+  expect(listUsersRes.status).toBe(403);
+});
+
+test('list users', async () => {
+  const listUsersRes = await request(app)
+    .get('/api/user')
+    .set('Authorization', 'Bearer ' + adminAuthToken);
   expect(listUsersRes.status).toBe(200);
   expect(Array.isArray(listUsersRes.body.users)).toBe(true);
   expect(listUsersRes.body.users.length).toBeGreaterThan(0);
@@ -152,7 +161,7 @@ test('list users paginates', async () => {
 
   const firstPageRes = await request(app)
     .get('/api/user?page=1&limit=2')
-    .set('Authorization', `Bearer ${testUserAuthToken}`);
+    .set('Authorization', `Bearer ${adminAuthToken}`);
 
   expect(firstPageRes.status).toBe(200);
   expect(firstPageRes.body.users.length).toBe(2);
@@ -160,7 +169,7 @@ test('list users paginates', async () => {
 
   const secondPageRes = await request(app)
     .get('/api/user?page=2&limit=2')
-    .set('Authorization', `Bearer ${testUserAuthToken}`);
+    .set('Authorization', `Bearer ${adminAuthToken}`);
 
   expect(secondPageRes.status).toBe(200);
   expect(secondPageRes.body.users.length).toBeGreaterThan(0);
@@ -180,7 +189,7 @@ test('list users filters by name', async () => {
 
   const listUsersRes = await request(app)
     .get('/api/user?name=' + name)
-    .set('Authorization', `Bearer ${testUserAuthToken}`);
+    .set('Authorization', `Bearer ${adminAuthToken}`);
 
   expect(listUsersRes.status).toBe(200);
   expect(listUsersRes.body.users.length).toBe(1);
@@ -204,7 +213,7 @@ test('list users name filter supports wildcards', async () => {
 
   const listUsersRes = await request(app)
     .get('/api/user?name=' + prefix + '*')
-    .set('Authorization', `Bearer ${testUserAuthToken}`);
+    .set('Authorization', `Bearer ${adminAuthToken}`);
 
   expect(listUsersRes.status).toBe(200);
   expect(listUsersRes.body.users.map((u) => u.name).sort()).toEqual(names);

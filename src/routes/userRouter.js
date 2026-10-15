@@ -39,8 +39,8 @@ userRouter.docs = [
     method: 'GET',
     path: '/api/user?page=1&limit=10&name=*',
     requiresAuth: true,
-    description: 'Gets a list of users',
-    example: `curl -X GET localhost:3000/api/user -H 'Authorization: Bearer tttttt'`,
+    description: 'Gets a list of users. Only admins can list users.',
+    example: `curl -X GET 'localhost:3000/api/user?page=1&limit=10&name=*' -H 'Authorization: Bearer tttttt'`,
     response: {
       users: [
         {
@@ -50,7 +50,16 @@ userRouter.docs = [
           roles: [{ role: 'admin' }],
         },
       ],
+      more: false,
     },
+  },
+  {
+    method: 'DELETE',
+    path: '/api/user/:userId',
+    requiresAuth: true,
+    description: 'Deletes a user. Only admins can delete users.',
+    example: `curl -X DELETE localhost:3000/api/user/1 -H 'Authorization: Bearer tttttt'`,
+    response: {},
   },
 ];
 
