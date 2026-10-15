@@ -1,17 +1,19 @@
 const request = require('supertest');
 const app = require('../service');
-const { randomName } = require('../../testHelpers');
+const { randomName, registerUser } = require('../../testHelpers');
 
 let testUser;
 let testUserAuthToken;
 
 beforeAll(async () => {
   const name = randomName();
-  const registerRes = await request(app).post('/api/auth').send({
-    name,
-    email: name + '@test.com',
-    password: 'a',
-  });
+  const registerRes = await request(app)
+    .post('/api/auth')
+    .send({
+      name,
+      email: name + '@test.com',
+      password: 'a',
+    });
 
   testUser = registerRes.body.user;
   testUserAuthToken = registerRes.body.token;
@@ -44,7 +46,9 @@ test('update the authenticated user', async () => {
 
   expect(userRes.status).toBe(200);
   expect(userRes.body.user).toMatchObject({ id: testUser.id, name });
-  expect(userRes.body.token).toMatch(/^[a-zA-Z0-9\-_]*\.[a-zA-Z0-9\-_]*\.[a-zA-Z0-9\-_]*$/);
+  expect(userRes.body.token).toMatch(
+    /^[a-zA-Z0-9\-_]*\.[a-zA-Z0-9\-_]*\.[a-zA-Z0-9\-_]*$/,
+  );
 });
 
 test('a user cannot update another user', async () => {
@@ -65,11 +69,15 @@ test('delete user route returns its current response', async () => {
   expect(userRes.body).toEqual({ message: 'not implemented' });
 });
 
-test('list users requires authentication', async () => {
-  const usersRes = await request(app)
-    .get('/api/user')
-    .set('Authorization', `Bearer ${testUserAuthToken}`);
+test('list users unauthorized', async () => {
+  const listUsersRes = await request(app).get('/api/user');
+  expect(listUsersRes.status).toBe(401);
+});
 
-  expect(usersRes.status).toBe(200);
-  expect(usersRes.body).toEqual({ message: 'not implemented', users: [], more: false });
+test('list users', async () => {
+  const [user, userToken] = await registerUser(request(app));
+  const listUsersRes = await request(app)
+    .get('/api/user')
+    .set('Authorization', 'Bearer ' + userToken);
+  expect(listUsersRes.status).toBe(200);
 });
