@@ -95,12 +95,11 @@ userRouter.delete(
   '/:userId',
   authRouter.authenticateToken,
   asyncHandler(async (req, res) => {
-    const userId = Number(req.params.userId);
-    const user = req.user;
-    if (user.id !== userId && !user.isRole(Role.Admin)) {
+    if (!req.user.isRole(Role.Admin)) {
       return res.status(403).json({ message: 'unauthorized' });
     }
 
+    const userId = Number(req.params.userId);
     await DB.deleteUser(userId);
     res.json({});
   }),
@@ -111,6 +110,10 @@ userRouter.get(
   '/',
   authRouter.authenticateToken,
   asyncHandler(async (req, res) => {
+    if (!req.user.isRole(Role.Admin)) {
+      return res.status(403).json({ message: 'unauthorized' });
+    }
+
     const [users, more] = await DB.getUsers(req.query.page, req.query.limit, req.query.name);
     res.json({ users, more });
   }),
