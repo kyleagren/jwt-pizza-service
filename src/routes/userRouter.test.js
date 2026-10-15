@@ -1,9 +1,22 @@
 const request = require('supertest');
 const app = require('../service');
-const { randomName, registerUser } = require('../../testHelpers');
+const {
+  randomName,
+  registerUser,
+  createAdminUser,
+} = require('../../testHelpers');
 
 let testUser;
 let testUserAuthToken;
+
+async function createAdminToken() {
+  const admin = await createAdminUser();
+  const loginRes = await request(app)
+    .put('/api/auth')
+    .send({ email: admin.email, password: admin.password });
+  expect(loginRes.status).toBe(200);
+  return loginRes.body.token;
+}
 
 beforeAll(async () => {
   const name = randomName();
@@ -60,13 +73,52 @@ test('a user cannot update another user', async () => {
   expect(userRes.status).toBe(403);
 });
 
-test('delete user route returns its current response', async () => {
-  const userRes = await request(app)
-    .delete('/api/user/' + testUser.id)
-    .set('Authorization', `Bearer ${testUserAuthToken}`);
+test('delete user requires authentication', async () => {
+  const deleteRes = await request(app).delete('/api/user/' + testUser.id);
+  expect(deleteRes.status).toBe(401);
+});
 
-  expect(userRes.status).toBe(200);
-  expect(userRes.body).toEqual({ message: 'not implemented' });
+test('a user can delete themselves', async () => {
+  const [user, userToken] = await registerUser(request(app));
+
+  const deleteRes = await request(app)
+    .delete('/api/user/' + user.id)
+    .set('Authorization', `Bearer ${userToken}`);
+  expect(deleteRes.status).toBe(200);
+
+  const loginRes = await request(app)
+    .put('/api/auth')
+    .send({ email: user.email, password: user.password });
+  expect(loginRes.status).toBe(404);
+});
+
+test('a user cannot delete another user', async () => {
+  const [otherUser] = await registerUser(request(app));
+
+  const deleteRes = await request(app)
+    .delete('/api/user/' + otherUser.id)
+    .set('Authorization', `Bearer ${testUserAuthToken}`);
+  expect(deleteRes.status).toBe(403);
+
+  const loginRes = await request(app)
+    .put('/api/auth')
+    .send({ email: otherUser.email, password: otherUser.password });
+  expect(loginRes.status).toBe(200);
+});
+
+test('an admin can delete another user', async () => {
+  const [user] = await registerUser(request(app));
+  const adminToken = await createAdminToken();
+
+  const deleteRes = await request(app)
+    .delete('/api/user/' + user.id)
+    .set('Authorization', `Bearer ${adminToken}`);
+  expect(deleteRes.status).toBe(200);
+
+  const loginRes = await request(app)
+    .put('/api/auth')
+    .send({ email: user.email, password: user.password });
+  expect(loginRes.status).toBe(404);
 });
 
 test('list users unauthorized', async () => {
@@ -99,7 +151,7 @@ test('list users paginates', async () => {
   }
 
   const firstPageRes = await request(app)
-    .get('/api/user?page=0&limit=2')
+    .get('/api/user?page=1&limit=2')
     .set('Authorization', `Bearer ${testUserAuthToken}`);
 
   expect(firstPageRes.status).toBe(200);
@@ -107,7 +159,7 @@ test('list users paginates', async () => {
   expect(firstPageRes.body.more).toBe(true);
 
   const secondPageRes = await request(app)
-    .get('/api/user?page=1&limit=2')
+    .get('/api/user?page=2&limit=2')
     .set('Authorization', `Bearer ${testUserAuthToken}`);
 
   expect(secondPageRes.status).toBe(200);

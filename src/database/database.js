@@ -131,12 +131,12 @@ class DB {
     }
   }
 
-  async getUsers(page = 0, limit = 10, nameFilter = '*') {
+  async getUsers(page = 1, limit = 10, nameFilter = '*') {
     const connection = await this.getConnection();
 
     page = Number(page);
     limit = Number(limit);
-    const offset = page * limit;
+    const offset = (page - 1) * limit;
     // Needed to convert from * wildcard to % wildcard so mysql can understand it.
     nameFilter = nameFilter.replace(/\*/g, '%');
 
